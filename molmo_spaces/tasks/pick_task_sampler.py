@@ -291,7 +291,7 @@ class PickTaskSampler(BaseMujocoTaskSampler):
                     positions["goal_pose"] = np.asarray(goal[:3])
 
             robot_view = env.current_robot.robot_view
-            gripper_mg_id = robot_view.get_gripper_movegroup_ids()[0]
+            gripper_mg_id = robot_view.get_active_gripper_movegroup_id()
             ee_pose = (
                 robot_view.base.pose @ robot_view.get_move_group(gripper_mg_id).leaf_frame_to_robot
             )

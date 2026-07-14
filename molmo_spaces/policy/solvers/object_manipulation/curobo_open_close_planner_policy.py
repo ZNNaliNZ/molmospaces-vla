@@ -356,7 +356,7 @@ class CuroboOpenClosePlannerPolicy(CuroboPlannerPolicy, OpenClosePlannerPolicy):
         )
 
         # Get current TCP position
-        gripper_mg_id = self.task.env.current_robot.robot_view.get_gripper_movegroup_ids()[0]
+        gripper_mg_id = self.task.env.current_robot.robot_view.get_active_gripper_movegroup_id()
         tcp_pose_world = self.task.env.current_robot.robot_view.get_move_group(
             gripper_mg_id
         ).leaf_frame_to_world

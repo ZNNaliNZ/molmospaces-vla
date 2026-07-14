@@ -159,7 +159,7 @@ class MoveSequence(ActionPrimitive):
             curr_target_pose = move_seg.end_pose
 
         # Solve IK for current target pose
-        mg_id = self.robot_view.get_gripper_movegroup_ids()[0]
+        mg_id = self.robot_view.get_active_gripper_movegroup_id()
         return self.tcp_to_jp_fn(mg_id, curr_target_pose)
 
     def get_current_phase(self) -> str:
@@ -181,7 +181,7 @@ class MoveSequence(ActionPrimitive):
             return True
 
         if self.is_holding_object:
-            gripper_mg_id = self.robot_view.get_gripper_movegroup_ids()[0]
+            gripper_mg_id = self.robot_view.get_active_gripper_movegroup_id()
             gripper = self.robot_view.get_gripper(gripper_mg_id)
             if (
                 gripper.inter_finger_dist
@@ -249,7 +249,7 @@ class TCPMoveSequence(MoveSequence):
         curr_target_pose = self.get_current_target_pose()
 
         # Solve IK for current target pose
-        mg_id = self.robot_view.get_gripper_movegroup_ids()[0]
+        mg_id = self.robot_view.get_active_gripper_movegroup_id()
         return self.tcp_to_jp_fn(mg_id, curr_target_pose)
 
     def check_failure(self) -> bool:
@@ -260,7 +260,7 @@ class TCPMoveSequence(MoveSequence):
             return False
 
         curr_target_pose = self.get_current_target_pose()
-        gripper_mg_id = self.robot_view.get_gripper_movegroup_ids()[0]
+        gripper_mg_id = self.robot_view.get_active_gripper_movegroup_id()
         gripper = self.robot_view.get_gripper(gripper_mg_id)
 
         trf = np.linalg.inv(gripper.leaf_frame_to_world) @ curr_target_pose
@@ -347,7 +347,7 @@ class GripperAction(ActionPrimitive):
             else:
                 log.info("Closing gripper...")
 
-            mg_id = self.robot_view.get_gripper_movegroup_ids()[0]
+            mg_id = self.robot_view.get_active_gripper_movegroup_id()
             gripper = self.robot_view.get_gripper(mg_id)
             gripper.set_gripper_ctrl_open(self.target_open)
 
@@ -456,13 +456,17 @@ class BaseObjectManipulationPlannerPolicy(PlannerPolicy):
         return phases
 
     def reset(self, reset_retries: bool = True):
-        if not self.ik_warmed_up:
+        if not self.ik_warmed_up and self.policy_config.filter_feasible_grasps:
             with Timer() as warmup_time:
                 self.task.env.current_robot.parallel_kinematics.warmup_ik(
                     self.policy_config.grasp_feasibility_batch_size
                 )
             self.ik_warmed_up = True
             log.info(f"Warmed up parallel IK solver in {warmup_time.value:.3f}s")
+        elif not self.ik_warmed_up:
+            # Some embodiments intentionally use sequential MuJoCo IK and do not implement a
+            # parallel solver. They still receive single-pose feasibility checks below.
+            self.ik_warmed_up = True
 
         self.action_primitives = self._compute_trajectory()
 
@@ -476,7 +480,7 @@ class BaseObjectManipulationPlannerPolicy(PlannerPolicy):
                 for move_segment in action_primitive.move_segments:
                     self.target_poses[move_segment.name] = move_segment.end_pose
             elif isinstance(action_primitive, JointMoveSequence):
-                gripper_mg_id = self.robot_view.get_gripper_movegroup_ids()[0]
+                gripper_mg_id = self.robot_view.get_active_gripper_movegroup_id()
                 kinematics = self.task.env.current_robot.kinematics
                 for move_segment in action_primitive.move_segments:
                     end_qpos = move_segment.end_qpos
@@ -542,12 +546,29 @@ class BaseObjectManipulationPlannerPolicy(PlannerPolicy):
         kinematics = self.task.env.current_robot.kinematics
 
         gripper_mgs = set(self.robot_view.get_gripper_movegroup_ids())
-        mgs_except_gripper = [x for x in self.robot_view.move_group_ids() if x not in gripper_mgs]
+        configured_ik_mgs = self.config.robot_config.active_ik_move_group_ids
+        if configured_ik_mgs is None:
+            ik_move_group_ids = [
+                move_group_id
+                for move_group_id in self.robot_view.move_group_ids()
+                if move_group_id not in gripper_mgs
+            ]
+        else:
+            unknown_ids = set(configured_ik_mgs) - set(self.robot_view.move_group_ids())
+            if unknown_ids:
+                raise ValueError(
+                    f"Unknown active IK move groups {sorted(unknown_ids)} for {self.robot_view.name}"
+                )
+            ik_move_group_ids = [
+                move_group_id
+                for move_group_id in configured_ik_mgs
+                if move_group_id not in gripper_mgs
+            ]
 
         jp = kinematics.ik(
             mg_id,
             target_pose,
-            mgs_except_gripper,
+            ik_move_group_ids,
             self.robot_view.get_qpos_dict(),
             self.robot_view.base.pose,
         )
@@ -555,7 +576,7 @@ class BaseObjectManipulationPlannerPolicy(PlannerPolicy):
         action = self.robot_view.get_ctrl_dict()
         if jp is not None:
             self.sequential_ik_failures = 0
-            action.update({mg_id: jp[mg_id] for mg_id in mgs_except_gripper})
+            action.update({mg_id: jp[mg_id] for mg_id in ik_move_group_ids})
         else:
             self.sequential_ik_failures += 1
             log.info(f"⚠️ IK failed, holding current position, fails:{self.sequential_ik_failures}")
@@ -581,11 +602,11 @@ class BaseObjectManipulationPlannerPolicy(PlannerPolicy):
 
             robot_view = self.task.env.current_robot.robot_view
             parallel_kinematics = self.task.env.current_robot.parallel_kinematics
-            gripper_mg_id = robot_view.get_gripper_movegroup_ids()[0]
+            gripper_mg_id = robot_view.get_active_gripper_movegroup_id()
             jp_dicts = parallel_kinematics.ik(
                 gripper_mg_id,
                 pose,
-                None,
+                self.config.robot_config.active_ik_move_group_ids,
                 robot_view.get_qpos_dict(),
                 robot_view.base.pose,
                 rel_to_base=False,
@@ -595,11 +616,11 @@ class BaseObjectManipulationPlannerPolicy(PlannerPolicy):
             assert pose.shape == (4, 4)
             robot_view = self.task.env.current_robot.robot_view
             kinematics = self.task.env.current_robot.kinematics
-            gripper_mg_id = robot_view.get_gripper_movegroup_ids()[0]
+            gripper_mg_id = robot_view.get_active_gripper_movegroup_id()
             jp_dict = kinematics.ik(
                 gripper_mg_id,
                 pose,
-                robot_view.move_group_ids(),
+                self.config.robot_config.active_ik_move_group_ids,
                 robot_view.get_qpos_dict(),
                 base_pose=robot_view.base.pose,
             )

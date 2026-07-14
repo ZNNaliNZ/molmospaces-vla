@@ -60,6 +60,43 @@ Whereas we focus on generation of manipulation data, we also provide a basic nav
 python -m molmo_spaces.data_generation.main NavToObjDataGenConfig
 ```
 
+### Multi-Embodiment Tabletop Matrix
+
+The tabletop matrix combines `pick`, `pick_and_place`, `pick_and_place_next_to`,
+`pick_and_place_color`, and `packing` with every bundled manipulation embodiment. See the
+[implementation plan](../../docs/tabletop_datagen_plan.md) for readiness gates and rollout order.
+
+List all 45 registered combinations without loading robot assets:
+
+```bash
+python scripts/datagen/run_tabletop_matrix.py --list
+```
+
+Construct one configuration without sampling episodes:
+
+```bash
+python scripts/datagen/run_tabletop_matrix.py \
+  --task pick_and_place \
+  --embodiment franka_droid \
+  --validate-only
+```
+
+Run a bounded pilot:
+
+```bash
+python scripts/datagen/run_tabletop_matrix.py \
+  --task pick_and_place \
+  --embodiment franka_droid \
+  --house-indices 0 1 2 3 \
+  --samples-per-house 2 \
+  --max-tasks 20
+```
+
+Cells marked `pilot` or `adapter` require `--allow-unvalidated`. Dual-arm profiles accept
+`--active-gripper left` or `--active-gripper right`; balance both in production data.
+Use `--all --allow-unvalidated --balance-arms` only after all cells have passed their documented
+pilot gates.
+
 ## Creating a New Config
 
 1. Create a new file (or add to an existing one) under `molmo_spaces/data_generation/config/`.

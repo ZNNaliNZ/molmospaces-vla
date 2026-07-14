@@ -491,7 +491,7 @@ class BaseMujocoTaskSampler:
         if key == "__gripper__":
             # Get gripper body name
             robot_view = env.current_robot.robot_view
-            gripper_mg_id = robot_view.get_gripper_movegroup_ids()[0]
+            gripper_mg_id = robot_view.get_active_gripper_movegroup_id()
             gripper_body_id = robot_view.get_move_group(gripper_mg_id).root_body_id
             return [robot_view.mj_model.body(gripper_body_id).name]
         return []

@@ -61,7 +61,7 @@ class RobotStateSensor(Sensor):
         # qvel_dict = robot_view.get_qvel_dict()
 
         # Get end-effector pose
-        gripper_mg_id = robot_view.get_gripper_movegroup_ids()[0]
+        gripper_mg_id = robot_view.get_active_gripper_movegroup_id()
         ee_pose = robot_view.get_move_group(gripper_mg_id).leaf_frame_to_robot
 
         # Ensure consistent structure with fixed-length arrays
@@ -113,7 +113,7 @@ class TCPPoseSensor(Sensor):
         robot_view = env.robots[batch_index].robot_view
         # Get TCP pose relative to robot base
         if self._gripper_mg_id is None:
-            gripper_mg_id = robot_view.get_gripper_movegroup_ids()[0]
+            gripper_mg_id = robot_view.get_active_gripper_movegroup_id()
         else:
             gripper_mg_id = self._gripper_mg_id
         tcp_pose_matrix = robot_view.get_move_group(gripper_mg_id).leaf_frame_to_robot

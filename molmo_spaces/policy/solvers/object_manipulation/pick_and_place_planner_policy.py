@@ -26,7 +26,7 @@ class PickAndPlacePlannerPolicy(BaseObjectManipulationPlannerPolicy):
         robot_view = self.task.env.current_robot.robot_view
         target_poses = self._compute_target_poses()
 
-        gripper_mg_id = robot_view.get_gripper_movegroup_ids()[0]
+        gripper_mg_id = robot_view.get_active_gripper_movegroup_id()
         start_ee_pose = robot_view.get_move_group(gripper_mg_id).leaf_frame_to_world
 
         return [

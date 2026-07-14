@@ -700,6 +700,7 @@ class RobotView(ABC):
         self.mj_model = mj_data.model
         self.mj_data = mj_data
         self._move_groups = move_groups
+        self._active_gripper_move_group_id: str | None = None
         for mg_name, mg in move_groups.items():
             assert mg._name is None, f"Move group {mg_name} already has a name {mg._name}"
             mg._name = mg_name
@@ -800,6 +801,27 @@ class RobotView(ABC):
             if isinstance(self._move_groups[mg_id], GripperGroup)
         ]
         return self._gripper_movegroup_ids_cache
+
+    def set_active_gripper_move_group_id(self, move_group_id: str | None) -> None:
+        """Select the gripper used by single-manipulator tasks.
+
+        ``None`` preserves the historical behavior of selecting the first gripper. An explicit
+        value is validated against the robot view immediately, which makes bad matrix profiles
+        fail during robot construction instead of midway through a rollout.
+        """
+        if move_group_id is not None and move_group_id not in self.get_gripper_movegroup_ids():
+            raise ValueError(
+                f"Active gripper '{move_group_id}' is not one of "
+                f"{self.get_gripper_movegroup_ids()} for {self.name}"
+            )
+        self._active_gripper_move_group_id = move_group_id
+
+    def get_active_gripper_movegroup_id(self) -> str:
+        """Return the configured task gripper, falling back to the first gripper."""
+        gripper_ids = self.get_gripper_movegroup_ids()
+        if not gripper_ids:
+            raise ValueError(f"Robot view {self.name} has no gripper move groups")
+        return self._active_gripper_move_group_id or gripper_ids[0]
 
     def get_jacobian(self, move_group_id: str, input_move_group_ids: list[str]) -> np.ndarray:
         """Calculate the Jacobian of a move group with respect to specific input move groups.

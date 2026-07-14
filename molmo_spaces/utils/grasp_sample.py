@@ -168,7 +168,7 @@ def select_grasp_pose(
     com_dist_cost_weight: float = 8.0,
 ) -> np.ndarray:
     robot = env.current_robot
-    gripper_mg_id = robot.robot_view.get_gripper_movegroup_ids()[0]
+    gripper_mg_id = robot.robot_view.get_active_gripper_movegroup_id()
     tcp_pose = robot.robot_view.get_move_group(gripper_mg_id).leaf_frame_to_world
     tcp_pose_inv = np.linalg.inv(tcp_pose)
 

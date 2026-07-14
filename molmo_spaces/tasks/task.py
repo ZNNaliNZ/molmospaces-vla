@@ -451,6 +451,21 @@ class BaseMujocoTask(ABC):
             "policy_dt_ms": self.config.policy_dt_ms,
             "referral_expressions": self.get_referral_expressions(),
         }
+        if hasattr(self.config, "tabletop_embodiment"):
+            obs_scene.update(
+                {
+                    "tabletop_matrix_version": self.config.tabletop_matrix_version,
+                    "tabletop_task": self.config.tabletop_task,
+                    "tabletop_embodiment": self.config.tabletop_embodiment,
+                    "tabletop_readiness": self.config.tabletop_readiness,
+                    "tabletop_source_revision": self.config.tabletop_source_revision,
+                    "tabletop_resource_versions": self.config.tabletop_resource_versions,
+                    "tabletop_camera_roles": self.config.tabletop_camera_roles,
+                    "active_gripper_move_group_id": (
+                        self.config.robot_config.active_gripper_move_group_id
+                    ),
+                }
+            )
         if self._registered_policy is not None:
             from molmo_spaces.policy.base_policy import PlannerPolicy
 

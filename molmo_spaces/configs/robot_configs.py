@@ -102,6 +102,12 @@ class BaseRobotConfig(Config):
         None  # path to the robot directory, if not using a prepackaged MlSpaces robot
     )
 
+    # Optional manipulation selection. Single-gripper robots can leave these unset. Multi-arm
+    # experiments set them explicitly so samplers, sensors, and planners do not silently select
+    # whichever gripper happens to be first in a dictionary.
+    active_gripper_move_group_id: str | None = None
+    active_ik_move_group_ids: list[str] | None = None
+
     # configurable control parameters for low-level mujoco controllers
     gravcomp: bool = False  # apply gravity compensation to every body in the robot
     K_stiffness: list[float] | None = None  # if None use values from model

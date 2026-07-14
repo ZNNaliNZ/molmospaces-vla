@@ -263,6 +263,21 @@ class CuroboPickAndPlacePlannerPolicyConfig(PickAndPlacePlannerPolicyConfig):
     ]
 
 
+class CuroboPickAndPlaceNextToPlannerPolicyConfig(CuroboPickAndPlacePlannerPolicyConfig):
+    """CuRobo pick-and-place config with next-to placement targets."""
+
+    policy_cls: type = None
+    policy_factory: PolicyFactory | None = None
+
+    def model_post_init(self, __context) -> None:
+        from molmo_spaces.policy.solvers.object_manipulation.curobo_pick_and_place_next_to_planner_policy import (
+            CuroboPickAndPlaceNextToPlannerPolicy,
+        )
+
+        self.policy_cls = CuroboPickAndPlaceNextToPlannerPolicy
+        self.policy_factory = CuroboPickAndPlaceNextToPlannerPolicy
+
+
 class PickAndPlaceNextToPlannerPolicyConfig(PickAndPlacePlannerPolicyConfig):
     policy_cls: type = None  # Will be set in model_post_init to avoid circular imports
 

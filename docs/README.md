@@ -22,6 +22,7 @@ Some project documentation is located within the codebase. Here is an index of a
 ## Data & Processing
 
 - [Data generation](../scripts/datagen/README.md)
+- [Multi-embodiment tabletop data generation](../docs/tabletop_datagen_plan.md)
 - [Data format](../docs/data_format.md)
 - [Data postprocessing](../docs/data_processing.md)
 
