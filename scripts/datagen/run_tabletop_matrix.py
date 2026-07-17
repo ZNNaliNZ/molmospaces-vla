@@ -53,7 +53,7 @@ def _parse_args() -> argparse.Namespace:
         description="Run the MolmoSpaces tabletop task-by-embodiment matrix."
     )
     parser.add_argument("--list", action="store_true", help="List all matrix cells and exit.")
-    parser.add_argument("--all", action="store_true", help="Select the complete 45-cell matrix.")
+    parser.add_argument("--all", action="store_true", help="Select the complete 40-cell matrix.")
     parser.add_argument(
         "--task",
         nargs="+",
@@ -79,7 +79,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--allow-unvalidated",
         action="store_true",
-        help="Allow cells marked pilot or adapter.",
+        help="Allow cells marked pilot.",
     )
     parser.add_argument(
         "--validate-only",
@@ -119,7 +119,7 @@ def _selected_cells(args: argparse.Namespace) -> list[TabletopCombination]:
 
 
 def _is_unvalidated(combination: TabletopCombination) -> bool:
-    return combination.readiness in {TabletopReadiness.PILOT, TabletopReadiness.ADAPTER}
+    return combination.readiness is TabletopReadiness.PILOT
 
 
 def _source_revision() -> str | None:

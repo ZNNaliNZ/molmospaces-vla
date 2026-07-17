@@ -67,7 +67,7 @@ def main() -> None:
     mujoco.mj_forward(model, data)
 
     if args.move_group is None:
-        move_group_id = robot_view.get_active_gripper_movegroup_id()
+        move_group_id = robot_view.get_gripper_movegroup_ids()[0]
         move_group = robot_view.get_move_group(move_group_id)
     else:
         move_group_id = args.move_group

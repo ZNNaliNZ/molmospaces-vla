@@ -46,9 +46,6 @@ class RBY1(Robot):
 
         # Create the robot view:
         self._robot_view = RBY1RobotView(mj_data, self.namespace, holo_base=self._use_holo_base)
-        self._robot_view.set_active_gripper_move_group_id(
-            self.exp_config.robot_config.active_gripper_move_group_id
-        )
 
         # Create kinematic solver:
         self._kinematics = MlSpacesKinematics(self.exp_config.robot_config)

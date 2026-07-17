@@ -711,7 +711,7 @@ class JsonEvalTaskSampler(BaseMujocoTaskSampler):
         gripper_body_name = None
         try:
             robot_view = env.current_robot.robot_view
-            gripper_mg_id = robot_view.get_active_gripper_movegroup_id()
+            gripper_mg_id = robot_view.get_gripper_movegroup_ids()[0]
             gripper_mg = robot_view.get_move_group(gripper_mg_id)
             ee_pose = robot_view.base.pose @ gripper_mg.leaf_frame_to_robot
             gripper_pos = ee_pose[:3, 3]

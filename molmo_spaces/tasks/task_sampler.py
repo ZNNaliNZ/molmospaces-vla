@@ -423,7 +423,11 @@ class BaseMujocoTaskSampler:
         torch.manual_seed(seed)
 
     def _create_robot(self, mj_data: MjData) -> Robot:
-        return self.config.robot_config.robot_factory(mj_data, self.config)
+        robot = self.config.robot_config.robot_factory(mj_data, self.config)
+        robot.robot_view.set_active_gripper_move_group_id(
+            self.config.robot_config.active_gripper_move_group_id
+        )
+        return robot
 
     def setup_cameras(self, env: CPUMujocoEnv, deterministic_only: bool = False) -> None:
         """Set up all cameras defined in the camera system config.

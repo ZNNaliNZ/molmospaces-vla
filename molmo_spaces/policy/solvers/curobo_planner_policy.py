@@ -434,19 +434,12 @@ class CuroboPlannerPolicy(PlannerPolicy):
         left_dist = np.linalg.norm(left_tcp_pos - pickup_obj_pos)
         right_dist = np.linalg.norm(right_tcp_pos - pickup_obj_pos)
 
-        configured_gripper = self.config.robot_config.active_gripper_move_group_id
-        if configured_gripper in {"left_gripper", "right_gripper"}:
-            selected_arm = configured_gripper.removesuffix("_gripper")
-        else:
-            selected_arm = "left" if left_dist < right_dist else "right"
+        selected_arm = "left" if left_dist < right_dist else "right"
         log.info(
             f"Selected {selected_arm} arm (left dist: {left_dist:.3f}m, right dist: {right_dist:.3f}m)"
         )
 
         self.arm_side = selected_arm
-        self.task.env.current_robot.robot_view.set_active_gripper_move_group_id(
-            f"{selected_arm}_gripper"
-        )
 
         # Instantiate the planner for the selected arm only
         log.info(f"Instantiating motion planner for {selected_arm} arm")

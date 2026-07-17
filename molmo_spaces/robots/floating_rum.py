@@ -26,9 +26,6 @@ class FloatingRUMRobot(Robot):
         self._robot_view = config.robot_config.robot_view_factory(
             mj_data, config.robot_config.robot_namespace
         )
-        self._robot_view.set_active_gripper_move_group_id(
-            config.robot_config.active_gripper_move_group_id
-        )
         self._kinematics = FloatingRUMKinematics(config.robot_config)
         self._parallel_kinematics = DummyParallelKinematics(
             config.robot_config,

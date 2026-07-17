@@ -99,7 +99,7 @@ class CuroboPickAndPlacePlannerPolicy(CuroboPlannerPolicy, PickAndPlacePlannerPo
         )
 
         # Get current TCP position
-        gripper_mg_id = self.task.env.current_robot.robot_view.get_active_gripper_movegroup_id()
+        gripper_mg_id = self.task.env.current_robot.robot_view.get_gripper_movegroup_ids()[0]
         tcp_pose_world = self.task.env.current_robot.robot_view.get_move_group(
             gripper_mg_id
         ).leaf_frame_to_world
@@ -304,19 +304,12 @@ class CuroboPickAndPlacePlannerPolicy(CuroboPlannerPolicy, PickAndPlacePlannerPo
         left_dist = np.linalg.norm(left_tcp_pose[:3, 3] - pickup_obj_pos)
         right_dist = np.linalg.norm(right_tcp_pose[:3, 3] - pickup_obj_pos)
 
-        configured_gripper = self.config.robot_config.active_gripper_move_group_id
-        if configured_gripper in {"left_gripper", "right_gripper"}:
-            selected_arm = configured_gripper.removesuffix("_gripper")
-        else:
-            selected_arm = "left" if left_dist < right_dist else "right"
+        selected_arm = "left" if left_dist < right_dist else "right"
         log.info(
             f"Selected {selected_arm} arm (left dist: {left_dist:.3f}m, right dist: {right_dist:.3f}m)"
         )
 
         self.arm_side = selected_arm
-        self.task.env.current_robot.robot_view.set_active_gripper_move_group_id(
-            f"{selected_arm}_gripper"
-        )
 
         if self._use_local_planner:
             self._select_arm_local(selected_arm)

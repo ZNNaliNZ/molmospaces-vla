@@ -6,8 +6,19 @@ from functools import cache, lru_cache
 def _ensure_nltk():
     import nltk
 
-    for corpus in ["wordnet", "wordnet2022"]:
-        nltk.download(corpus)
+    resource_paths = {
+        "wordnet": ("corpora/wordnet.zip", "corpora/wordnet"),
+        "wordnet2022": ("corpora/wordnet2022", "corpora/wordnet2022.zip"),
+    }
+    for corpus, paths in resource_paths.items():
+        for path in paths:
+            try:
+                nltk.data.find(path)
+                break
+            except LookupError:
+                continue
+        else:
+            nltk.download(corpus)
 
 
 _ensure_nltk()

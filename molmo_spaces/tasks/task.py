@@ -331,11 +331,15 @@ class BaseMujocoTask(ABC):
             # Return current state without stepping
             return self.get_and_cache_all_step_information()
 
-        # Check if any action contains a "done" signal
+        # Policy completion metadata is not a robot move-group command. Remove it before
+        # forwarding actions to robot controllers; floating robots otherwise interpret
+        # fields such as "success" as move-group IDs.
         for _i, act in enumerate(actions):
-            if isinstance(act, dict) and act.get("done", False):
-                act.pop("done")
+            if not isinstance(act, dict):
+                continue
+            if act.pop("done", False):
                 self._done_action_received = True
+            act.pop("success", None)
 
         # Update episode step count
         self.episode_step_count += 1

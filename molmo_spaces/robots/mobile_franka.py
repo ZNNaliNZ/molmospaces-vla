@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, cast
 import mujoco
 import numpy as np
 from mujoco import MjData, MjSpec, mjtGeom
+from scipy.spatial.transform import Rotation as R
 
 from molmo_spaces.controllers.abstract import Controller
 from molmo_spaces.controllers.joint_pos import JointPosController
@@ -32,9 +33,6 @@ class MobileFrankaRobot(Robot):
         super().__init__(mj_data, config)
         self._robot_view = config.robot_config.robot_view_factory(
             mj_data, config.robot_config.robot_namespace
-        )
-        self._robot_view.set_active_gripper_move_group_id(
-            config.robot_config.active_gripper_move_group_id
         )
         self._kinematics = MlSpacesKinematics(config.robot_config)
 
@@ -240,7 +238,6 @@ class MobileFrankaRobot(Robot):
 
 
 if __name__ == "__main__":
-    from scipy.spatial.transform import Rotation as R
     import mujoco.viewer
 
     from molmo_spaces.configs.robot_configs import MobileFrankaRobotConfig

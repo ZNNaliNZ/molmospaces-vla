@@ -26,8 +26,6 @@ from molmo_spaces.configs.camera_configs import (
 )
 from molmo_spaces.configs.policy_configs import (
     BasePolicyConfig,
-    CuroboPickAndPlaceNextToPlannerPolicyConfig,
-    CuroboPickAndPlacePlannerPolicyConfig,
     PickAndPlaceColorPlannerPolicyConfig,
     PickAndPlaceNextToPlannerPolicyConfig,
     PickAndPlacePlannerPolicyConfig,
@@ -43,7 +41,6 @@ from molmo_spaces.configs.robot_configs import (
     I2rtYamRobotConfig,
     MobileFrankaRobotConfig,
     RBY1Config,
-    RBY1MConfig,
 )
 from molmo_spaces.configs.task_configs import (
     AllTaskConfigs,
@@ -65,7 +62,6 @@ from molmo_spaces.data_generation.config_registry import register_config
 from molmo_spaces.molmo_spaces_constants import (
     ASSETS_DIR,
     DATA_TYPE_TO_SOURCE_TO_VERSION,
-    get_robot_path,
 )
 from molmo_spaces.tasks.packing_task import PackingTask
 from molmo_spaces.tasks.packing_task_sampler import PackingTaskSampler
@@ -97,7 +93,6 @@ class TabletopReadiness(StrEnum):
     REFERENCE = "reference"
     EXISTING = "existing"
     PILOT = "pilot"
-    ADAPTER = "adapter"
 
 
 @dataclass(frozen=True)
@@ -120,7 +115,6 @@ class TabletopEmbodimentProfile:
     sampler_overrides: Mapping[str, Any]
     readiness: Mapping[str, TabletopReadiness]
     camera_roles: Mapping[str, str] | None = None
-    planner_backend: str = "mujoco_ik"
     supports_parallel_ik: bool = True
     policy_dt_ms: float = 66.0
     ctrl_dt_ms: float = 2.0
@@ -338,41 +332,6 @@ TABLETOP_EMBODIMENT_PROFILES: dict[str, TabletopEmbodimentProfile] = {
         sim_dt_ms=4.0,
         notes="Sequential MuJoCo IK fallback; select one arm explicitly.",
     ),
-    "rby1m": TabletopEmbodimentProfile(
-        key="rby1m",
-        class_prefix="RBY1M",
-        robot_config_factory=RBY1MConfig,
-        camera_config_factory=RBY1GoProD455CameraSystem,
-        active_gripper_ids=("left_gripper", "right_gripper"),
-        ik_move_groups_by_gripper={
-            "left_gripper": ("base", "torso", "left_arm"),
-            "right_gripper": ("base", "torso", "right_arm"),
-        },
-        sampler_overrides={
-            "robot_safety_radius": 0.35,
-            "max_robot_to_obj_dist": 0.5,
-            "max_robot_to_place_receptacle_dist": 0.5,
-            "object_placement_radius_range": (0.1, 0.5),
-        },
-        readiness={
-            "pick": TabletopReadiness.EXISTING,
-            "pick_and_place": TabletopReadiness.EXISTING,
-            "pick_and_place_next_to": TabletopReadiness.PILOT,
-            "pick_and_place_color": TabletopReadiness.PILOT,
-            "packing": TabletopReadiness.PILOT,
-        },
-        camera_roles={
-            "wrist_left": "wrist_camera_l",
-            "wrist_right": "wrist_camera_r",
-            "exo": "head_camera",
-        },
-        planner_backend="curobo",
-        supports_parallel_ik=False,
-        policy_dt_ms=100.0,
-        ctrl_dt_ms=20.0,
-        sim_dt_ms=4.0,
-        notes="CuRobo planner; local GPU execution by default.",
-    ),
     "floating_rum": TabletopEmbodimentProfile(
         key="floating_rum",
         class_prefix="FloatingRUM",
@@ -509,51 +468,6 @@ def _normalize_active_gripper(
     return selected
 
 
-def _build_rby1m_curobo_policy(
-    task_key: str, ctrl_dt_ms: float
-) -> CuroboPickAndPlacePlannerPolicyConfig:
-    # Keep CuRobo imports lazy so listing the matrix works on CPU-only machines.
-    from molmo_spaces.planner.curobo_planner import CuroboPlannerConfig
-    from molmo_spaces.policy.solvers.object_manipulation.curobo_pick_and_place_planner_policy import (
-        CuroboPickAndPlacePlannerPolicy,
-    )
-
-    robot_path = get_robot_path("rby1m")
-    left_planner = CuroboPlannerConfig(
-        curobo_robot_config_path=str(
-            robot_path / "curobo_config" / "rby1m_left_arm_holobase.yml"
-        ),
-        collision_activation_distance=0.01,
-        num_trajopt_seeds=12,
-        max_attempts=15,
-        num_ik_seeds=128,
-        trajopt_tsteps=48,
-        interpolation_dt=ctrl_dt_ms / 1000.0,
-        check_start_validity=True,
-        enable_finetune_trajopt=True,
-    )
-    right_planner = left_planner.model_copy(deep=True)
-    right_planner.curobo_robot_config_path = str(
-        robot_path / "curobo_config" / "rby1m_right_arm_holobase.yml"
-    )
-
-    shared: dict[str, Any] = {
-        "left_curobo_planner_config": left_planner,
-        "right_curobo_planner_config": right_planner,
-        "enable_collision_avoidance": True,
-        # Empty means local CuRobo. A remote server must be opted into explicitly by changing the
-        # generated config; matrix construction never contacts an external service.
-        "server_urls": [],
-    }
-    if task_key == "pick_and_place_next_to":
-        return CuroboPickAndPlaceNextToPlannerPolicyConfig(**shared)
-    return CuroboPickAndPlacePlannerPolicyConfig(
-        policy_cls=CuroboPickAndPlacePlannerPolicy,
-        policy_factory=CuroboPickAndPlacePlannerPolicy,
-        **shared,
-    )
-
-
 def _apply_sampler_overrides(
     sampler_config: BaseMujocoTaskSamplerConfig,
     overrides: Mapping[str, Any],
@@ -624,14 +538,11 @@ def _build_tabletop_config_data(
         sampler_config.house_inds = house_inds
     _apply_sampler_overrides(sampler_config, embodiment_profile.sampler_overrides)
 
-    if embodiment_profile.planner_backend == "curobo":
-        policy_config = _build_rby1m_curobo_policy(task, embodiment_profile.ctrl_dt_ms)
-    else:
-        policy_config = task_profile.policy_config_factory()
-        if not embodiment_profile.supports_parallel_ik and hasattr(
-            policy_config, "filter_feasible_grasps"
-        ):
-            policy_config.filter_feasible_grasps = False
+    policy_config = task_profile.policy_config_factory()
+    if not embodiment_profile.supports_parallel_ik and hasattr(
+        policy_config, "filter_feasible_grasps"
+    ):
+        policy_config.filter_feasible_grasps = False
 
     combination = TabletopCombination(task_profile, embodiment_profile)
     resolved_output_dir = output_dir or (
@@ -688,9 +599,6 @@ def list_tabletop_combinations() -> list[TabletopCombination]:
     ]
 
 
-TABLETOP_CONFIG_CLASSES: dict[str, type[TabletopDataGenConfig]] = {}
-
-
 def _register_matrix_config(combination: TabletopCombination) -> None:
     class_name = combination.config_name
     task_key = combination.task.key
@@ -715,7 +623,7 @@ def _register_matrix_config(combination: TabletopCombination) -> None:
         },
     )
     globals()[class_name] = generated_cls
-    TABLETOP_CONFIG_CLASSES[class_name] = register_config(class_name)(generated_cls)
+    register_config(class_name)(generated_cls)
 
 
 for _combination in list_tabletop_combinations():
